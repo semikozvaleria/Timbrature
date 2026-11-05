@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Cartellino</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --in-color: #22c55e;
+      --out-color: #ef4444;
+      --pause-color: #f59e0b;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 16px; min-height: 100vh; }
+    .container { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+    header { display: flex; justify-content: space-between; align-items: center; }
+    h1 { font-size: 1.25rem; font-weight: 700; color: var(--primary); }
+    .header-actions { display: flex; gap: 8px; }
+    .btn-icon { background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 8px; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none; font-size: 1.1rem; }
+
+    .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 16px; }
+
+    .clock-display { text-align: center; }
+    .time { font-size: 2.3rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .date { color: var(--text-muted); font-size: 0.9rem; text-transform: capitalize; margin-top: 4px; }
+
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-box { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 12px; text-align: center; }
+    .stat-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
+    .stat-val { font-size: 1.35rem; font-weight: 700; color: var(--primary); margin-top: 4px; }
+
+    .btn { border: none; border-radius: var(--radius); padding: 14px; font-weight: 700; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+    .btn:active { transform: scale(0.98); }
+    .btn-auto { background-color: var(--primary); color: #000; font-size: 1.1rem; }
+    .quick-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .btn-in { background-color: var(--in-color); color: #fff; }
+    .btn-out { background-color: var(--out-color); color: #fff; }
+    .btn-secondary { background: var(--card-border); color: var(--text); font-size: 0.85rem; padding: 10px; border-radius: 8px; }
+    .btn-link { display: block; text-align: center; text-decoration: none; background: rgba(56, 189, 248, 0.1); border: 1px solid var(--primary); color: var(--primary); padding: 12px; border-radius: var(--radius); font-weight: 600; margin-top: 4px; }
+
+    .section-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+    input, select { background: #0b1120; border: 1px solid var(--card-border); color: #fff; padding: 10px; border-radius: 8px; font-size: 0.9rem; width: 100%; outline: none; }
+
+    .status-bar { font-size: 0.75rem; text-align: center; color: var(--text-muted); margin-top: 8px; }
+    .status-online { color: var(--in-color); }
+    .status-error { color: var(--out-color); }
+
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(3px); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); width: 100%; max-width: 440px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+    .modal-content label { font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>⏱ Cartellino</h1>
+      <div class="header-actions">
+        <a href="storico.html" class="btn-icon" title="Apri Storico">📜</a>
+        <button class="btn-icon" id="openSettings" title="Impostazioni GitHub">⚙️</button>
+      </div>
+    </header>
+
+    <div class="card clock-display">
+      <div class="time" id="clockTime">00:00:00</div>
+      <div class="date" id="clockDate">--</div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-label">Oggi (Nette)</div>
+        <div class="stat-val" id="todayHours">0h 00m</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Settimana</div>
+        <div class="stat-val" id="weekHours">0h 00m</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <button class="btn btn-auto" id="btnAuto">⏱ Timbra (Auto)</button>
+      <div class="quick-row">
+        <button class="btn btn-in" id="btnIn">🟢 Entrata</button>
+        <button class="btn btn-out" id="btnOut">🔴 Uscita</button>
+      </div>
+      <div class="status-bar" id="syncStatus">Stato: Locale</div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">
+        <span>☕ Pausa di Oggi (da sottrarre)</span>
+        <span id="currentPauseLabel" style="color: var(--pause-color); font-size: 0.85rem;">0 min</span>
+      </div>
+      <div class="input-row">
+        <select id="pauseSelect">
+          <option value="0">0 minuti</option>
+          <option value="15">15 minuti</option>
+          <option value="30">30 minuti</option>
+          <option value="45">45 minuti</option>
+          <option value="60">60 minuti (1 ora)</option>
+        </select>
+        <button class="btn btn-secondary" style="white-space: nowrap; width: auto;" id="btnSetPause">Imposta</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">✏️ Timbratura Manuale</div>
+      <div class="input-row">
+        <input type="date" id="manualDate">
+        <input type="time" id="manualTime">
+      </div>
+      <div class="input-row">
+        <select id="manualType">
+          <option value="ENTRATA">Entrata</option>
+          <option value="USCITA">Uscita</option>
+        </select>
+        <button class="btn btn-secondary" style="white-space: nowrap; width: auto;" id="btnManualAdd">Aggiungi</button>
+      </div>
+    </div>
+
+    <a href="storico.html" class="btn-link">📋 Vai allo Storico Completo (Modifica / Cancella)</a>
+  </div>
+
+  <div class="modal" id="settingsModal">
+    <div class="modal-content">
+      <h2 style="font-size: 1.1rem; color: var(--primary);">Configurazione GitHub</h2>
+      <div>
+        <label>Username GitHub</label>
+        <input type="text" id="ghUser" placeholder="es. mario-rossi">
+      </div>
+      <div>
+        <label>Nome Repository</label>
+        <input type="text" id="ghRepo" placeholder="es. timbrature">
+      </div>
+      <div>
+        <label>Personal Access Token (classic)</label>
+        <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx">
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
+        <button class="btn btn-secondary" style="width: auto;" id="closeSettings">Chiudi</button>
+        <button class="btn btn-in" style="width: auto; padding: 10px 18px;" id="saveSettings">Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const FILE_PATH = "timbrature.txt";
+    let punches = JSON.parse(localStorage.getItem("punches") || "[]");
+    let dailyPauses = JSON.parse(localStorage.getItem("dailyPauses") || "{}");
+    let lastFileSha = null;
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("clockTime").textContent = now.toTimeString().split(" ")[0];
+      document.getElementById("clockDate").textContent = now.toLocaleDateString("it-IT", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric"
+      });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    document.getElementById("manualDate").value = todayStr;
+    document.getElementById("manualTime").value = new Date().toTimeString().substring(0, 5);
+
+    function parseDate(d, t) { return new Date(`${d}T${t}:00`); }
+
+    function calculateStats() {
+      const now = new Date();
+      const currentDayStr = now.toISOString().split("T")[0];
+      const dayOfWeek = (now.getDay() + 6) % 7;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - dayOfWeek);
+      monday.setHours(0, 0, 0, 0);
+
+      const grouped = {};
+      punches.forEach(p => {
+        if (!grouped[p.date]) grouped[p.date] = [];
+        grouped[p.date].push(p);
+      });
+
+      let todayTotalMinutes = 0;
+      let weekTotalMinutes = 0;
+
+      for (const [dStr, records] of Object.entries(grouped)) {
+        records.sort((a, b) => a.time.localeCompare(b.time));
+        let dayMinutes = 0;
+        let lastIn = null;
+
+        for (const r of records) {
+          if (r.type === "ENTRATA") {
+            lastIn = parseDate(r.date, r.time);
+          } else if (r.type === "USCITA" && lastIn) {
+            const outTime = parseDate(r.date, r.time);
+            if (outTime > lastIn) dayMinutes += Math.round((outTime - lastIn) / 60000);
+            lastIn = null;
+          }
+        }
+
+        const pauseMin = dailyPauses[dStr] || 0;
+        dayMinutes = Math.max(0, dayMinutes - pauseMin);
+
+        if (dStr === currentDayStr) todayTotalMinutes = dayMinutes;
+        if (new Date(dStr + "T00:00:00") >= monday) weekTotalMinutes += dayMinutes;
+      }
+
+      const formatHours = (min) => `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, "0")}m`;
+      document.getElementById("todayHours").textContent = formatHours(todayTotalMinutes);
+      document.getElementById("weekHours").textContent = formatHours(weekTotalMinutes);
+
+      const todayPause = dailyPauses[currentDayStr] || 0;
+      document.getElementById("currentPauseLabel").textContent = `${todayPause} min`;
+      document.getElementById("pauseSelect").value = String(todayPause);
+    }
+
+    function getGHConfig() {
+      return {
+        user: localStorage.getItem("gh_user") || "",
+        repo: localStorage.getItem("gh_repo") || "",
+        token: localStorage.getItem("gh_token") || ""
+      };
+    }
+
+    function setStatus(text, type = "normal") {
+      const el = document.getElementById("syncStatus");
+      el.textContent = text;
+      el.className = "status-bar " + (type === "online" ? "status-online" : type === "error" ? "status-error" : "");
+    }
+
+    function serializePunchesToText() {
+      let txt = "# REGISTRO TIMBRATURE\n# DATA | ORA | TIPO | PAUSA_GIORNO_MINUTI\n";
+      const sorted = [...punches].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+      sorted.forEach(p => {
+        const pause = dailyPauses[p.date] || 0;
+        txt += `${p.date} | ${p.time} | ${p.type} | PAUSA:${pause}\n`;
+      });
+      return txt;
+    }
+
+    function parseTextToPunches(text) {
+      const lines = text.split("\n");
+      const loadedPunches = [];
+      const loadedPauses = {};
+
+      lines.forEach(line => {
+        line = line.trim();
+        if (!line || line.startsWith("#")) return;
+        const parts = line.split("|").map(s => s.trim());
+        if (parts.length >= 3) {
+          loadedPunches.push({ date: parts[0], time: parts[1], type: parts[2] });
+          if (parts[3] && parts[3].startsWith("PAUSA:")) {
+            const min = parseInt(parts[3].replace("PAUSA:", ""), 10);
+            if (!isNaN(min)) loadedPauses[parts[0]] = min;
+          }
+        }
+      });
+      return { punches: loadedPunches, pauses: loadedPauses };
+    }
+
+    async function pullFromGitHub() {
+      const { user, repo, token } = getGHConfig();
+      if (!user || !repo || !token) return;
+
+      try {
+        const url = `https://api.github.com/repos/${user}/${repo}/contents/${FILE_PATH}`;
+        const res = await fetch(url, {
+          headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github.v3+json" }
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        lastFileSha = data.sha;
+        const decoded = decodeURIComponent(escape(atob(data.content)));
+        const parsed = parseTextToPunches(decoded);
+
+        punches = parsed.punches;
+        dailyPauses = parsed.pauses;
+        localStorage.setItem("punches", JSON.stringify(punches));
+        localStorage.setItem("dailyPauses", JSON.stringify(dailyPauses));
+
+        calculateStats();
+        setStatus("Sincronizzato con GitHub ✓", "online");
+      } catch (err) {
+        setStatus("Errore di sincronizzazione GitHub", "error");
+      }
+    }
+
+    async function pushToGitHub() {
+      const { user, repo, token } = getGHConfig();
+      if (!user || !repo || !token) return;
+
+      setStatus("Salvataggio su GitHub...", "normal");
+      try {
+        const url = `https://api.github.com/repos/${user}/${repo}/contents/${FILE_PATH}`;
+        const getRes = await fetch(url, {
+          headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github.v3+json" }
+        });
+        if (getRes.ok) {
+          const d = await getRes.json();
+          lastFileSha = d.sha;
+        }
+
+        const rawText = serializePunchesToText();
+        const base64Content = btoa(unescape(encodeURIComponent(rawText)));
+
+        const bodyData = {
+          message: `Aggiornamento: ${new Date().toLocaleString("it-IT")}`,
+          content: base64Content
+        };
+        if (lastFileSha) bodyData.sha = lastFileSha;
+
+        const putRes = await fetch(url, {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "Accept": "application/vnd.github.v3+json"
+          },
+          body: JSON.stringify(bodyData)
+        });
+
+        if (!putRes.ok) throw new Error("Errore commit");
+        const putData = await putRes.json();
+        lastFileSha = putData.content.sha;
+        setStatus("Salvato su GitHub ✓", "online");
+      } catch (err) {
+        setStatus("Errore nel salvataggio su GitHub", "error");
+      }
+    }
+
+    async function addPunch(type, dateStr, timeStr) {
+      punches.push({ date: dateStr, time: timeStr, type: type });
+      localStorage.setItem("punches", JSON.stringify(punches));
+      calculateStats();
+      await pushToGitHub();
+    }
+
+    document.getElementById("btnIn").addEventListener("click", () => {
+      const now = new Date();
+      addPunch("ENTRATA", now.toISOString().split("T")[0], now.toTimeString().substring(0, 5));
+    });
+
+    document.getElementById("btnOut").addEventListener("click", () => {
+      const now = new Date();
+      addPunch("USCITA", now.toISOString().split("T")[0], now.toTimeString().substring(0, 5));
+    });
+
+    document.getElementById("btnAuto").addEventListener("click", () => {
+      const sorted = [...punches].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+      const last = sorted[sorted.length - 1];
+      const nextType = (!last || last.type === "USCITA") ? "ENTRATA" : "USCITA";
+      const now = new Date();
+      addPunch(nextType, now.toISOString().split("T")[0], now.toTimeString().substring(0, 5));
+    });
+
+    document.getElementById("btnManualAdd").addEventListener("click", () => {
+      const d = document.getElementById("manualDate").value;
+      const t = document.getElementById("manualTime").value;
+      const type = document.getElementById("manualType").value;
+      if (!d || !t) return alert("Inserisci sia data che orario");
+      addPunch(type, d, t);
+    });
+
+    document.getElementById("btnSetPause").addEventListener("click", async () => {
+      const nowStr = new Date().toISOString().split("T")[0];
+      dailyPauses[nowStr] = parseInt(document.getElementById("pauseSelect").value, 10);
+      localStorage.setItem("dailyPauses", JSON.stringify(dailyPauses));
+      calculateStats();
+      await pushToGitHub();
+    });
+
+    const modal = document.getElementById("settingsModal");
+    document.getElementById("openSettings").addEventListener("click", () => {
+      document.getElementById("ghUser").value = localStorage.getItem("gh_user") || "";
+      document.getElementById("ghRepo").value = localStorage.getItem("gh_repo") || "";
+      document.getElementById("ghToken").value = localStorage.getItem("gh_token") || "";
+      modal.classList.add("active");
+    });
+    document.getElementById("closeSettings").addEventListener("click", () => modal.classList.remove("active"));
+    document.getElementById("saveSettings").addEventListener("click", async () => {
+      localStorage.setItem("gh_user", document.getElementById("ghUser").value.trim());
+      localStorage.setItem("gh_repo", document.getElementById("ghRepo").value.trim());
+      localStorage.setItem("gh_token", document.getElementById("ghToken").value.trim());
+      modal.classList.remove("active");
+      await pullFromGitHub();
+    });
+
+    calculateStats();
+    if (localStorage.getItem("gh_token")) pullFromGitHub();
+  </script>
+</body>
+</html>

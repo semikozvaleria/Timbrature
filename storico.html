@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Storico Timbrature</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --in-color: #22c55e;
+      --out-color: #ef4444;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 16px; padding-bottom: 40px; min-height: 100vh; }
+    .container { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+    header { display: flex; align-items: center; justify-content: space-between; }
+    .btn-back { text-decoration: none; background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; }
+    h1 { font-size: 1.15rem; font-weight: 700; color: var(--primary); }
+
+    .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 14px; }
+    
+    .filter-row { display: flex; gap: 8px; align-items: center; }
+    input, select { background: #0b1120; border: 1px solid var(--card-border); color: #fff; padding: 8px 10px; border-radius: 8px; font-size: 0.9rem; width: 100%; outline: none; }
+
+    .day-block { margin-bottom: 12px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); overflow: hidden; }
+    .day-header { background: rgba(255,255,255,0.03); padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.9rem; border-bottom: 1px solid var(--card-border); }
+    .day-hours { font-size: 0.8rem; color: var(--primary); }
+
+    .item-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.9rem; }
+    .item-row:last-child { border-bottom: none; }
+    .badge { padding: 3px 6px; border-radius: 4px; font-weight: 700; font-size: 0.7rem; }
+    .badge-in { background: rgba(34, 197, 94, 0.15); color: var(--in-color); }
+    .badge-out { background: rgba(239, 68, 68, 0.15); color: var(--out-color); }
+
+    .actions { display: flex; gap: 6px; }
+    .btn-act { background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: var(--text); border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; }
+    .btn-act:active { background: rgba(255,255,255,0.15); }
+
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(3px); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); width: 100%; max-width: 400px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+    .modal-content label { font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 4px; }
+    
+    .status-bar { font-size: 0.75rem; text-align: center; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <a href="index.html" class="btn-back">⬅ Torna</a>
+      <h1>Storico Presenze</h1>
+      <button class="btn-act" id="btnRefresh" style="padding: 8px 12px;">🔄 Aggiorna</button>
+    </header>
+
+    <div class="card">
+      <div class="filter-row">
+        <input type="month" id="filterMonth">
+        <button class="btn-act" id="btnResetFilter" style="white-space: nowrap; padding: 8px 10px;">Tutti</button>
+      </div>
+      <div class="status-bar" id="syncStatus" style="margin-top: 8px;">Pronto</div>
+    </div>
+
+    <div id="historyContainer">
+      <!-- Raggruppamento per data generato via JS -->
+    </div>
+  </div>
+
+  <!-- Modal Modifica Timbratura -->
+  <div class="modal" id="editModal">
+    <div class="modal-content">
+      <h2 style="font-size: 1.1rem; color: var(--primary);">Modifica Timbratura</h2>
+      <input type="hidden" id="editOriginalId">
+      <div>
+        <label>Data</label>
+        <input type="date" id="editDate">
+      </div>
+      <div>
+        <label>Orario</label>
+        <input type="time" id="editTime">
+      </div>
+      <div>
+        <label>Tipo</label>
+        <select id="editType">
+          <option value="ENTRATA">Entrata</option>
+          <option value="USCITA">Uscita</option>
+        </select>
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
+        <button class="btn-act" id="closeEdit" style="padding: 8px 14px;">Annulla</button>
+        <button class="btn-act" id="saveEdit" style="background: var(--primary); color: #000; font-weight: 700; padding: 8px 16px;">Salva</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const FILE_PATH = "timbrature.txt";
+    let punches = JSON.parse(localStorage.getItem("punches") || "[]");
+    let dailyPauses = JSON.parse(localStorage.getItem("dailyPauses") || "{}");
+    let lastFileSha = null;
+
+    function getGHConfig() {
+      return {
+        user: localStorage.getItem("gh_user") || "",
+        repo: localStorage.getItem("gh_repo") || "",
+        token: localStorage.getItem("gh_token") || ""
+      };
+    }
+
+    function setStatus(text) {
+      document.getElementById("syncStatus").textContent = text;
+    }
+
+    function serializePunchesToText() {
+      let txt = "# REGISTRO TIMBRATURE\n# DATA | ORA | TIPO | PAUSA_GIORNO_MINUTI\n";
+      const sorted = [...punches].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+      sorted.forEach(p => {
+        const pause = dailyPauses[p.date] || 0;
+        txt += `${p.date} | ${p.time} | ${p.type} | PAUSA:${pause}\n`;
+      });
+      return txt;
+    }
+
+    function parseTextToPunches(text) {
+      const lines = text.split("\n");
+      const loadedPunches = [];
+      const loadedPauses = {};
+
+      lines.forEach(line => {
+        line = line.trim();
+        if (!line || line.startsWith("#")) return;
+        const parts = line.split("|").map(s => s.trim());
+        if (parts.length >= 3) {
+          loadedPunches.push({ date: parts[0], time: parts[1], type: parts[2] });
+          if (parts[3] && parts[3].startsWith("PAUSA:")) {
+            const min = parseInt(parts[3].replace("PAUSA:", ""), 10);
+            if (!isNaN(min)) loadedPauses[parts[0]] = min;
+          }
+        }
+      });
+      return { punches: loadedPunches, pauses: loadedPauses };
+    }
+
+    async function pullFromGitHub() {
+      const { user, repo, token } = getGHConfig();
+      if (!user || !repo || !token) return;
+
+      setStatus("Lettura da GitHub...");
+      try {
+        const url = `https://api.github.com/repos/${user}/${repo}/contents/${FILE_PATH}`;
+        const res = await fetch(url, {
+          headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github.v3+json" }
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+        lastFileSha = data.sha;
+        const decoded = decodeURIComponent(escape(atob(data.content)));
+        const parsed = parseTextToPunches(decoded);
+
+        punches = parsed.punches;
+        dailyPauses = parsed.pauses;
+        localStorage.setItem("punches", JSON.stringify(punches));
+        localStorage.setItem("dailyPauses", JSON.stringify(dailyPauses));
+
+        renderList();
+        setStatus("Sincronizzato con GitHub ✓");
+      } catch (err) {
+        setStatus("Errore sincronizzazione GitHub");
+      }
+    }
+
+    async function pushToGitHub() {
+      const { user, repo, token } = getGHConfig();
+      if (!user || !repo || !token) return;
+
+      setStatus("Salvataggio modifiche su GitHub...");
+      try {
+        const url = `https://api.github.com/repos/${user}/${repo}/contents/${FILE_PATH}`;
+        const getRes = await fetch(url, {
+          headers: { "Authorization": `Bearer ${token}`, "Accept": "application/vnd.github.v3+json" }
+        });
+        if (getRes.ok) {
+          const d = await getRes.json();
+          lastFileSha = d.sha;
+        }
+
+        const rawText = serializePunchesToText();
+        const base64Content = btoa(unescape(encodeURIComponent(rawText)));
+
+        const bodyData = {
+          message: `Modifica storico: ${new Date().toLocaleString("it-IT")}`,
+          content: base64Content
+        };
+        if (lastFileSha) bodyData.sha = lastFileSha;
+
+        const putRes = await fetch(url, {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "Accept": "application/vnd.github.v3+json"
+          },
+          body: JSON.stringify(bodyData)
+        });
+
+        if (!putRes.ok) throw new Error("Errore salvataggio");
+        const putData = await putRes.json();
+        lastFileSha = putData.content.sha;
+        setStatus("Modifiche salvate su GitHub ✓");
+      } catch (err) {
+        setStatus("Errore nel salvataggio su GitHub");
+      }
+    }
+
+    function calculateDayMinutes(records, dateStr) {
+      records.sort((a, b) => a.time.localeCompare(b.time));
+      let min = 0;
+      let lastIn = null;
+      for (const r of records) {
+        if (r.type === "ENTRATA") {
+          lastIn = new Date(`${r.date}T${r.time}:00`);
+        } else if (r.type === "USCITA" && lastIn) {
+          const out = new Date(`${r.date}T${r.time}:00`);
+          if (out > lastIn) min += Math.round((out - lastIn) / 60000);
+          lastIn = null;
+        }
+      }
+      const pause = dailyPauses[dateStr] || 0;
+      return Math.max(0, min - pause);
+    }
+
+    function renderList() {
+      const container = document.getElementById("historyContainer");
+      container.innerHTML = "";
+
+      const filterMonth = document.getElementById("filterMonth").value;
+
+      // Assegna ID univoco se non presente per tracciare la riga esatta da modificare
+      punches.forEach((p, idx) => { if (!p.id) p.id = `${p.date}_${p.time}_${idx}`; });
+
+      const filtered = punches.filter(p => !filterMonth || p.date.startsWith(filterMonth));
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="card" style="text-align: center; color: var(--text-muted); font-size: 0.9rem;">Nessuna timbratura trovata</div>`;
+        return;
+      }
+
+      // Raggruppa per data
+      const grouped = {};
+      filtered.forEach(p => {
+        if (!grouped[p.date]) grouped[p.date] = [];
+        grouped[p.date].push(p);
+      });
+
+      const dates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
+
+      dates.forEach(dateStr => {
+        const dayPunches = grouped[dateStr].sort((a, b) => a.time.localeCompare(b.time));
+        const dayMin = calculateDayMinutes([...dayPunches], dateStr);
+        const pauseMin = dailyPauses[dateStr] || 0;
+
+        const dayBlock = document.createElement("div");
+        dayBlock.className = "day-block";
+
+        const dObj = new Date(dateStr + "T00:00:00");
+        const dayFormatted = dObj.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+
+        dayBlock.innerHTML = `
+          <div class="day-header">
+            <span>📅 ${dayFormatted}</span>
+            <span class="day-hours">Tot: ${Math.floor(dayMin / 60)}h ${String(dayMin % 60).padStart(2, "0")}m ${pauseMin > 0 ? `(Pausa -${pauseMin}m)` : ''}</span>
+          </div>
+          <div class="day-rows"></div>
+        `;
+
+        const rowContainer = dayBlock.querySelector(".day-rows");
+
+        dayPunches.forEach(p => {
+          const row = document.createElement("div");
+          row.className = "item-row";
+          row.innerHTML = `
+            <div>
+              <span class="badge ${p.type === 'ENTRATA' ? 'badge-in' : 'badge-out'}">${p.type}</span>
+              <strong style="margin-left: 8px; font-size: 0.95rem;">${p.time}</strong>
+            </div>
+            <div class="actions">
+              <button class="btn-act" onclick="openEditModal('${p.id}')">✏️ Modifica</button>
+              <button class="btn-act" style="color: var(--out-color);" onclick="deleteItem('${p.id}')">🗑 Elimina</button>
+            </div>
+          `;
+          rowContainer.appendChild(row);
+        });
+
+        container.appendChild(dayBlock);
+      });
+    }
+
+    // --- Cancellazione ---
+    window.deleteItem = async function(id) {
+      const item = punches.find(p => p.id === id);
+      if (!item) return;
+      if (!confirm(`Sei sicuro di voler eliminare la timbratura ${item.type} delle ore ${item.time} del ${item.date}?`)) return;
+
+      punches = punches.filter(p => p.id !== id);
+      localStorage.setItem("punches", JSON.stringify(punches));
+      renderList();
+      await pushToGitHub();
+    };
+
+    // --- Modifica ---
+    const editModal = document.getElementById("editModal");
+    window.openEditModal = function(id) {
+      const item = punches.find(p => p.id === id);
+      if (!item) return;
+
+      document.getElementById("editOriginalId").value = id;
+      document.getElementById("editDate").value = item.date;
+      document.getElementById("editTime").value = item.time;
+      document.getElementById("editType").value = item.type;
+      editModal.classList.add("active");
+    };
+
+    document.getElementById("closeEdit").addEventListener("click", () => editModal.classList.remove("active"));
+
+    document.getElementById("saveEdit").addEventListener("click", async () => {
+      const id = document.getElementById("editOriginalId").value;
+      const newDate = document.getElementById("editDate").value;
+      const newTime = document.getElementById("editTime").value;
+      const newType = document.getElementById("editType").value;
+
+      if (!newDate || !newTime) return alert("Compila data e orario");
+
+      const idx = punches.findIndex(p => p.id === id);
+      if (idx !== -1) {
+        punches[idx].date = newDate;
+        punches[idx].time = newTime;
+        punches[idx].type = newType;
+        localStorage.setItem("punches", JSON.stringify(punches));
+        editModal.classList.remove("active");
+        renderList();
+        await pushToGitHub();
+      }
+    });
+
+    // --- Filtri e Eventi ---
+    document.getElementById("filterMonth").addEventListener("change", renderList);
+    document.getElementById("btnResetFilter").addEventListener("click", () => {
+      document.getElementById("filterMonth").value = "";
+      renderList();
+    });
+    document.getElementById("btnRefresh").addEventListener("click", pullFromGitHub);
+
+    // Caricamento iniziale
+    renderList();
+    if (localStorage.getItem("gh_token")) pullFromGitHub();
+  </script>
+</body>
+</html>
