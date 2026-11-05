@@ -91,7 +91,7 @@
       </div>
     </div>
 
-    <!-- Tasti Timbratura (solo Entrata e Uscita) -->
+    <!-- Tasti Timbratura -->
     <div class="card">
       <div class="quick-row">
         <button class="btn btn-in" id="btnIn">🟢 Entrata</button>
@@ -100,7 +100,7 @@
       <div class="status-bar" id="syncStatus">Stato: Locale</div>
     </div>
 
-    <!-- Pausa Libera -->
+    <!-- Pausa Rapida di Oggi -->
     <div class="card">
       <div class="section-title">
         <span>☕ Pausa di Oggi (da sottrarre)</span>
@@ -114,11 +114,12 @@
         <button class="preset-btn" onclick="setPausePreset(60)">60m</button>
       </div>
       <div class="input-row">
-        <input type="number" id="pauseInput" min="0" step="1" placeholder="Inserisci minuti (es. 25, 75...)">
+        <input type="number" id="pauseInput" min="0" step="1" placeholder="Minuti pausa oggi (es. 25, 75...)">
         <button class="btn-secondary" style="white-space: nowrap; width: auto;" id="btnSetPause">Imposta</button>
       </div>
     </div>
 
+    <!-- Timbratura Manuale con Pausa -->
     <div class="card">
       <div class="section-title">✏️ Timbratura Manuale</div>
       <div class="input-row">
@@ -130,8 +131,9 @@
           <option value="ENTRATA">Entrata</option>
           <option value="USCITA">Uscita</option>
         </select>
-        <button class="btn-secondary" style="white-space: nowrap; width: auto;" id="btnManualAdd">Aggiungi</button>
+        <input type="number" id="manualPause" min="0" step="1" placeholder="Pausa giorno (min)" title="Minuti totali di pausa per questa data">
       </div>
+      <button class="btn btn-secondary" style="width: 100%; margin-top: 4px;" id="btnManualAdd">Aggiungi Timbratura</button>
     </div>
 
     <a href="storico.html" class="btn-link">📋 Vai allo Storico Completo (Modifica / Cancella)</a>
@@ -176,8 +178,19 @@
     updateClock();
 
     const todayStr = new Date().toISOString().split("T")[0];
-    document.getElementById("manualDate").value = todayStr;
+    const manualDateInput = document.getElementById("manualDate");
+    manualDateInput.value = todayStr;
     document.getElementById("manualTime").value = new Date().toTimeString().substring(0, 5);
+    document.getElementById("manualPause").value = dailyPauses[todayStr] !== undefined ? dailyPauses[todayStr] : "";
+
+    manualDateInput.addEventListener("change", () => {
+      const selected = manualDateInput.value;
+      if (selected && dailyPauses[selected] !== undefined) {
+        document.getElementById("manualPause").value = dailyPauses[selected];
+      } else {
+        document.getElementById("manualPause").value = "";
+      }
+    });
 
     function parseDate(d, t) { return new Date(`${d}T${t}:00`); }
 
@@ -361,15 +374,23 @@
       addPunch("USCITA", now.toISOString().split("T")[0], now.toTimeString().substring(0, 5));
     });
 
-    document.getElementById("btnManualAdd").addEventListener("click", () => {
+    document.getElementById("btnManualAdd").addEventListener("click", async () => {
       const d = document.getElementById("manualDate").value;
       const t = document.getElementById("manualTime").value;
       const type = document.getElementById("manualType").value;
+      const pauseVal = document.getElementById("manualPause").value;
+
       if (!d || !t) return alert("Inserisci sia data che orario");
-      addPunch(type, d, t);
+
+      if (pauseVal !== "") {
+        const pMin = Math.max(0, parseInt(pauseVal, 10) || 0);
+        dailyPauses[d] = pMin;
+        localStorage.setItem("dailyPauses", JSON.stringify(dailyPauses));
+      }
+
+      await addPunch(type, d, t);
     });
 
-    // Funzione impostazione minuti di pausa
     async function applyPause(minutes) {
       const nowStr = new Date().toISOString().split("T")[0];
       const val = Math.max(0, parseInt(minutes, 10) || 0);
