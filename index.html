@@ -38,18 +38,21 @@
     .stat-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; }
     .stat-val { font-size: 1.35rem; font-weight: 700; color: var(--primary); margin-top: 4px; }
 
-    .btn { border: none; border-radius: var(--radius); padding: 14px; font-weight: 700; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
+    .btn { border: none; border-radius: var(--radius); padding: 16px; font-weight: 700; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; }
     .btn:active { transform: scale(0.98); }
-    .btn-auto { background-color: var(--primary); color: #000; font-size: 1.1rem; }
-    .quick-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .quick-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .btn-in { background-color: var(--in-color); color: #fff; }
     .btn-out { background-color: var(--out-color); color: #fff; }
-    .btn-secondary { background: var(--card-border); color: var(--text); font-size: 0.85rem; padding: 10px; border-radius: 8px; }
+    .btn-secondary { background: var(--card-border); color: var(--text); font-size: 0.9rem; padding: 10px 14px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; }
     .btn-link { display: block; text-align: center; text-decoration: none; background: rgba(56, 189, 248, 0.1); border: 1px solid var(--primary); color: var(--primary); padding: 12px; border-radius: var(--radius); font-weight: 600; margin-top: 4px; }
 
     .section-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
     .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
-    input, select { background: #0b1120; border: 1px solid var(--card-border); color: #fff; padding: 10px; border-radius: 8px; font-size: 0.9rem; width: 100%; outline: none; }
+    input, select { background: #0b1120; border: 1px solid var(--card-border); color: #fff; padding: 10px; border-radius: 8px; font-size: 0.95rem; width: 100%; outline: none; }
+
+    .pause-presets { display: flex; gap: 6px; margin-bottom: 10px; }
+    .preset-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: var(--text-muted); border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; flex: 1; }
+    .preset-btn:active { background: var(--primary); color: #000; }
 
     .status-bar { font-size: 0.75rem; text-align: center; color: var(--text-muted); margin-top: 8px; }
     .status-online { color: var(--in-color); }
@@ -88,8 +91,8 @@
       </div>
     </div>
 
+    <!-- Tasti Timbratura (solo Entrata e Uscita) -->
     <div class="card">
-      <button class="btn btn-auto" id="btnAuto">⏱ Timbra (Auto)</button>
       <div class="quick-row">
         <button class="btn btn-in" id="btnIn">🟢 Entrata</button>
         <button class="btn btn-out" id="btnOut">🔴 Uscita</button>
@@ -97,20 +100,22 @@
       <div class="status-bar" id="syncStatus">Stato: Locale</div>
     </div>
 
+    <!-- Pausa Libera -->
     <div class="card">
       <div class="section-title">
         <span>☕ Pausa di Oggi (da sottrarre)</span>
         <span id="currentPauseLabel" style="color: var(--pause-color); font-size: 0.85rem;">0 min</span>
       </div>
+      <div class="pause-presets">
+        <button class="preset-btn" onclick="setPausePreset(0)">0m</button>
+        <button class="preset-btn" onclick="setPausePreset(15)">15m</button>
+        <button class="preset-btn" onclick="setPausePreset(30)">30m</button>
+        <button class="preset-btn" onclick="setPausePreset(45)">45m</button>
+        <button class="preset-btn" onclick="setPausePreset(60)">60m</button>
+      </div>
       <div class="input-row">
-        <select id="pauseSelect">
-          <option value="0">0 minuti</option>
-          <option value="15">15 minuti</option>
-          <option value="30">30 minuti</option>
-          <option value="45">45 minuti</option>
-          <option value="60">60 minuti (1 ora)</option>
-        </select>
-        <button class="btn btn-secondary" style="white-space: nowrap; width: auto;" id="btnSetPause">Imposta</button>
+        <input type="number" id="pauseInput" min="0" step="1" placeholder="Inserisci minuti (es. 25, 75...)">
+        <button class="btn-secondary" style="white-space: nowrap; width: auto;" id="btnSetPause">Imposta</button>
       </div>
     </div>
 
@@ -125,7 +130,7 @@
           <option value="ENTRATA">Entrata</option>
           <option value="USCITA">Uscita</option>
         </select>
-        <button class="btn btn-secondary" style="white-space: nowrap; width: auto;" id="btnManualAdd">Aggiungi</button>
+        <button class="btn-secondary" style="white-space: nowrap; width: auto;" id="btnManualAdd">Aggiungi</button>
       </div>
     </div>
 
@@ -137,19 +142,19 @@
       <h2 style="font-size: 1.1rem; color: var(--primary);">Configurazione GitHub</h2>
       <div>
         <label>Username GitHub</label>
-        <input type="text" id="ghUser" placeholder="es. mario-rossi">
+        <input type="text" id="ghUser" placeholder="es. semikozvaleria">
       </div>
       <div>
         <label>Nome Repository</label>
-        <input type="text" id="ghRepo" placeholder="es. timbrature">
+        <input type="text" id="ghRepo" placeholder="es. Timbrature">
       </div>
       <div>
         <label>Personal Access Token (classic)</label>
         <input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx">
       </div>
       <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
-        <button class="btn btn-secondary" style="width: auto;" id="closeSettings">Chiudi</button>
-        <button class="btn btn-in" style="width: auto; padding: 10px 18px;" id="saveSettings">Salva</button>
+        <button class="btn-secondary" style="width: auto;" id="closeSettings">Chiudi</button>
+        <button class="btn-in" style="width: auto; padding: 10px 18px;" id="saveSettings">Salva</button>
       </div>
     </div>
   </div>
@@ -221,7 +226,7 @@
 
       const todayPause = dailyPauses[currentDayStr] || 0;
       document.getElementById("currentPauseLabel").textContent = `${todayPause} min`;
-      document.getElementById("pauseSelect").value = String(todayPause);
+      document.getElementById("pauseInput").value = todayPause;
     }
 
     function getGHConfig() {
@@ -292,7 +297,7 @@
         calculateStats();
         setStatus("Sincronizzato con GitHub ✓", "online");
       } catch (err) {
-        setStatus("Errore di sincronizzazione GitHub", "error");
+        setStatus("Errore sincronizzazione GitHub", "error");
       }
     }
 
@@ -335,7 +340,7 @@
         lastFileSha = putData.content.sha;
         setStatus("Salvato su GitHub ✓", "online");
       } catch (err) {
-        setStatus("Errore nel salvataggio su GitHub", "error");
+        setStatus("Errore salvataggio su GitHub", "error");
       }
     }
 
@@ -356,14 +361,6 @@
       addPunch("USCITA", now.toISOString().split("T")[0], now.toTimeString().substring(0, 5));
     });
 
-    document.getElementById("btnAuto").addEventListener("click", () => {
-      const sorted = [...punches].sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-      const last = sorted[sorted.length - 1];
-      const nextType = (!last || last.type === "USCITA") ? "ENTRATA" : "USCITA";
-      const now = new Date();
-      addPunch(nextType, now.toISOString().split("T")[0], now.toTimeString().substring(0, 5));
-    });
-
     document.getElementById("btnManualAdd").addEventListener("click", () => {
       const d = document.getElementById("manualDate").value;
       const t = document.getElementById("manualTime").value;
@@ -372,12 +369,23 @@
       addPunch(type, d, t);
     });
 
-    document.getElementById("btnSetPause").addEventListener("click", async () => {
+    // Funzione impostazione minuti di pausa
+    async function applyPause(minutes) {
       const nowStr = new Date().toISOString().split("T")[0];
-      dailyPauses[nowStr] = parseInt(document.getElementById("pauseSelect").value, 10);
+      const val = Math.max(0, parseInt(minutes, 10) || 0);
+      dailyPauses[nowStr] = val;
       localStorage.setItem("dailyPauses", JSON.stringify(dailyPauses));
       calculateStats();
       await pushToGitHub();
+    }
+
+    window.setPausePreset = function(min) {
+      document.getElementById("pauseInput").value = min;
+      applyPause(min);
+    };
+
+    document.getElementById("btnSetPause").addEventListener("click", () => {
+      applyPause(document.getElementById("pauseInput").value);
     });
 
     const modal = document.getElementById("settingsModal");
